@@ -7,6 +7,7 @@ import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.input.BOMInputStream;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
@@ -18,8 +19,8 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -27,80 +28,86 @@ public class CardGenerator {
 
     private static final String GENERATED_SUFFIX = "-GENERATED";
 
+    private static String recordToString(CSVRecord record, Template template, FalseValue falseValue) {
+        if (falseValue == null || falseValue.value == null)
+            return template.execute(record.toMap());
+
+        Map<String, Object> result = new HashMap<>();
+        for (Map.Entry<String, String> e : record.toMap().entrySet())
+            result.put(
+                    e.getKey(),
+                    e.getValue().equals(falseValue.value) ? false : e.getValue());
+        return template.execute(result);
+    }
+
+    private static String[] recordToStrings(CSVRecord record, Template template, FalseValue falseValue) {
+        String copiesStr = record.isMapped("_copies") ? record.get("_copies") : null;
+        int copies = NumberUtils.toInt(copiesStr, 1);
+        String[] result = new String[copies];
+        Arrays.fill(result, recordToString(record, template, falseValue));
+        return result;
+    }
+
+    private static String[] recordsToStrings(List<CSVRecord> records, Template template, FalseValue falseValue) {
+        return records.stream()
+                .flatMap(record -> Arrays.stream(recordToStrings(record, template, falseValue)))
+                .toArray(String[]::new);
+    }
+
     public static void generateCards(WatchedFiles projectFiles, UserConfiguration config) throws IOException {
         Hccd.log("Generating card sheet file...");
         if (!projectFiles.getCsvFile().isFile()) {
             Hccd.log("CSV file does not exist. Generation aborted.");
-        } else {
-            String root = FilenameUtils.getBaseName(projectFiles.getHtmlFile().getName());
-            File target = new File(projectFiles.getParentDir(), root + GENERATED_SUFFIX + ".html");
-
-            String html = FileUtils.readFileToString(projectFiles.getHtmlFile());
-            Document doc = Jsoup.parse(html);
-            String card = doc.select(".card").first().outerHtml();
-            Template template = Mustache.compiler().escapeHTML(false).defaultValue("[NOT FOUND]").compile(card);
-            Iterable<CSVRecord> records = getData(projectFiles.getCsvFile(), config);
-
-            // filter cards
-            List<Integer> filter = config.getCardFilter();
-            List<CSVRecord> recordList = new ArrayList<>();
-            int index = 1;
-            for (CSVRecord record : records) {
-                if (filter.size() == 0 || filter.contains(index)) {
-                    recordList.add(record);
-                }
-                index++;
-            }
-
-
-            StringBuilder sb = new StringBuilder();
-            writeHeader(sb, projectFiles.getCssFile().getName());
-
-            Iterator<CSVRecord> recordIter = recordList.iterator();
-            int rows = config.getGridRowNumber();
-            int cols = config.getGridColNumber();
-
-            recordLoop:
-            {
-                while (recordIter.hasNext()) {
-                    sb.append("<table class=\"page\">");
-                    for (int i = 0; i < rows; i++) {
-                        sb.append("<tr>");
-                        for (int j = 0; j < cols; j++) {
-                            if (recordIter.hasNext()) {
-                                Map<String, String> map = recordIter.next().toMap();
-                                FalseValue falseValue = config.getFalseValue();
-                                String cardStr;
-
-                                if (falseValue == null || falseValue.value == null)
-                                    cardStr = template.execute(map);
-                                else {
-                                    Map<String, Object> result = new HashMap<>();
-                                    for (Map.Entry<String, String> e : map.entrySet())
-                                        result.put(
-                                                e.getKey(),
-                                                e.getValue().equals(falseValue.value) ? false : e.getValue());
-                                    cardStr = template.execute(result);
-                                }
-
-                                sb.append("<td>");
-                                sb.append(cardStr);
-                                sb.append("</td>");
-                            } else {
-                                sb.append("</tr></table>");
-                                break recordLoop;
-                            }
-                        }
-                        sb.append("</tr>");
-                    }
-                    sb.append("</table>");
-                }
-            }
-            writeFooter(sb);
-
-            FileUtils.writeStringToFile(target, sb.toString());
-            Hccd.log("Card sheet file written to " + target.getPath());
+            return;
         }
+
+        String root = FilenameUtils.getBaseName(projectFiles.getHtmlFile().getName());
+        File target = new File(projectFiles.getParentDir(), root + GENERATED_SUFFIX + ".html");
+
+        String html = FileUtils.readFileToString(projectFiles.getHtmlFile());
+        Document doc = Jsoup.parse(html);
+        String card = doc.select(".card").first().outerHtml();
+        Template template = Mustache.compiler().escapeHTML(false).defaultValue("[NOT FOUND]").compile(card);
+        Iterable<CSVRecord> records = getData(projectFiles.getCsvFile(), config);
+
+        // filter cards
+        List<Integer> filter = config.getCardFilter();
+        List<CSVRecord> recordList = new ArrayList<>();
+        int index = 1;
+        for (CSVRecord record : records) {
+            if (filter.size() == 0 || filter.contains(index)) {
+                recordList.add(record);
+            }
+            index++;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        writeHeader(sb, projectFiles.getCssFile().getName());
+
+        int rows = config.getGridRowNumber();
+        int cols = config.getGridColNumber();
+        int page = rows * cols;
+
+        String[] cards = recordsToStrings(recordList, template, config.getFalseValue());
+
+        for (int i = 0; i < cards.length; i++) {
+            if (i % page == 0)
+                sb.append("<table class=\"page\">");
+            if (i % cols == 0)
+                sb.append("<tr>");
+            sb.append("<td>");
+            sb.append(cards[i]);
+            sb.append("</td>");
+            if ((i + 1) % cols == 0 || i + 1 == cards.length)
+                sb.append("</tr>");
+            if ((i + 1) % page == 0 || i + 1 == cards.length)
+                sb.append("</table>");
+        }
+
+        writeFooter(sb);
+
+        FileUtils.writeStringToFile(target, sb.toString());
+        Hccd.log("Card sheet file written to " + target.getPath());
     }
 
     private static void writeHeader(StringBuilder sb, String cssFilePath) {
@@ -132,7 +139,6 @@ public class CardGenerator {
 
     private static void writeFooter(StringBuilder sb) {
         sb.append("</body></html>");
-
     }
 
     private static List<CSVRecord> getData(File csvFile, UserConfiguration config) throws IOException {
