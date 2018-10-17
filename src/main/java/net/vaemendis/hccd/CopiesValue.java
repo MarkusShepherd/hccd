@@ -1,14 +1,13 @@
 package net.vaemendis.hccd;
 
-public enum FalseValue {
+public enum CopiesValue {
     NONE(null, "[disabled]"),
-    EMPTY("", "[empty]"),
-    DASH("-", "-");
+    COPIES("_copies", "_copies");
 
     public final String value;
     public final String label;
 
-    FalseValue(String value, String label) {
+    CopiesValue(String value, String label) {
         this.value = value;
         this.label = label;
     }

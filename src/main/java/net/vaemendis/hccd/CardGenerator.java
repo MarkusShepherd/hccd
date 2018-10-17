@@ -19,7 +19,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +29,7 @@ public class CardGenerator {
     private static final String GENERATED_SUFFIX = "-GENERATED";
 
     private static String recordToString(CSVRecord record, Template template, FalseValue falseValue) {
-        if (falseValue == null || falseValue.value == null)
+        if (falseValue == null || !falseValue.isEnabled())
             return template.execute(record.toMap());
 
         Map<String, Object> result = new HashMap<>();
@@ -40,17 +40,27 @@ public class CardGenerator {
         return template.execute(result);
     }
 
-    private static String[] recordToStrings(CSVRecord record, Template template, FalseValue falseValue) {
-        String copiesStr = record.isMapped("_copies") ? record.get("_copies") : null;
+    private static List<String> recordToStrings(
+            CSVRecord record,
+            Template template,
+            FalseValue falseValue,
+            CopiesValue copiesValue
+    ) {
+        String copiesStr = copiesValue != null && copiesValue.isEnabled() && record.isMapped(copiesValue.value)
+                ? record.get(copiesValue.value)
+                : null;
         int copies = NumberUtils.toInt(copiesStr, 1);
-        String[] result = new String[copies];
-        Arrays.fill(result, recordToString(record, template, falseValue));
-        return result;
+        return Collections.nCopies(copies, recordToString(record, template, falseValue));
     }
 
-    private static String[] recordsToStrings(List<CSVRecord> records, Template template, FalseValue falseValue) {
+    private static String[] recordsToStrings(
+            List<CSVRecord> records,
+            Template template,
+            FalseValue falseValue,
+            CopiesValue copiesValue
+    ) {
         return records.stream()
-                .flatMap(record -> Arrays.stream(recordToStrings(record, template, falseValue)))
+                .flatMap(record -> recordToStrings(record, template, falseValue, copiesValue).stream())
                 .toArray(String[]::new);
     }
 
@@ -88,7 +98,7 @@ public class CardGenerator {
         int cols = config.getGridColNumber();
         int page = rows * cols;
 
-        String[] cards = recordsToStrings(recordList, template, config.getFalseValue());
+        String[] cards = recordsToStrings(recordList, template, config.getFalseValue(), config.getCopiesValue());
 
         for (int i = 0; i < cards.length; i++) {
             if (i % page == 0)

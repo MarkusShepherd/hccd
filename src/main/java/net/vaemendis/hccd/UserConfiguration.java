@@ -15,4 +15,6 @@ public interface UserConfiguration {
     List<Integer> getCardFilter();
 
     FalseValue getFalseValue();
+
+    CopiesValue getCopiesValue();
 }

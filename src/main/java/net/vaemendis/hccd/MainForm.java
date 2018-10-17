@@ -44,6 +44,7 @@ public class MainForm extends JFrame implements UserConfiguration {
     private static final String PREF_EXCEL_CSV = "csv_excel";
     private static final String PREF_DELIMITER = "delimiter";
     private static final String PREF_FALSE_VALUE = "false_value";
+    private static final String PREF_COPIES_VALUE = "copies_value";
     private static final String PREF_CARD_FILTER = "card_filter";
     private static final String PREF_WATCHED_FILE = "watched_file";
 
@@ -58,6 +59,7 @@ public class MainForm extends JFrame implements UserConfiguration {
     private final String[] delimiters = {";", ","};
     private final JComboBox<String> delimiterBox;
     private final JComboBox<FalseValue> falseBox;
+    private final JComboBox<CopiesValue> copiesBox;
     private final JTextField cardFilter;
     private String watchedFilePath;
 
@@ -103,11 +105,17 @@ public class MainForm extends JFrame implements UserConfiguration {
         JLabel delimiterLbl = new JLabel("Delimiter: ");
         delimiterBox = new JComboBox<>(delimiters);
         delimiterBox.setSelectedIndex(0);
-        // delimiterBox.setMaximumSize(new Dimension(50, 50));
+        delimiterBox.setMaximumSize(new Dimension(60, 50));
 
         JLabel falseLbl = new JLabel("False string: ");
         falseBox = new JComboBox<>(FalseValue.values());
         falseBox.setSelectedIndex(0);
+        falseBox.setMaximumSize(new Dimension(120, 50));
+
+        JLabel copiesLbl = new JLabel("Copies string: ");
+        copiesBox = new JComboBox<>(CopiesValue.values());
+        copiesBox.setSelectedIndex(0);
+        copiesBox.setMaximumSize(new Dimension(120, 50));
 
         JButton refreshBtn = new JButton("Refresh");
         refreshBtn.addActionListener(e -> {
@@ -128,11 +136,21 @@ public class MainForm extends JFrame implements UserConfiguration {
         JPanel rightPanel = new JPanel();
         rightPanel.setLayout(new BoxLayout(rightPanel, BoxLayout.PAGE_AXIS));
         rightPanel.add(openBtn);
-        rightPanel.add(Box.createVerticalStrut(60));
+        rightPanel.add(Box.createVerticalStrut(30));
+
         rightPanel.add(filterLbl);
         rightPanel.add(Box.createVerticalStrut(10));
         rightPanel.add(cardFilter);
         rightPanel.add(Box.createVerticalStrut(20));
+
+        rightPanel.add(falseLbl);
+        rightPanel.add(falseBox);
+        rightPanel.add(Box.createVerticalStrut(20));
+
+        rightPanel.add(copiesLbl);
+        rightPanel.add(copiesBox);
+        rightPanel.add(Box.createVerticalStrut(30));
+
         rightPanel.add(refreshBtn);
 
 
@@ -154,9 +172,6 @@ public class MainForm extends JFrame implements UserConfiguration {
         topPanel.add(Box.createHorizontalStrut(10));
         topPanel.add(delimiterLbl);
         topPanel.add(delimiterBox);
-        topPanel.add(Box.createHorizontalStrut(10));
-        topPanel.add(falseLbl);
-        topPanel.add(falseBox);
 
 
         topPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
@@ -298,12 +313,18 @@ public class MainForm extends JFrame implements UserConfiguration {
         return (FalseValue) falseBox.getSelectedItem();
     }
 
+    @Override
+    public CopiesValue getCopiesValue() {
+        return (CopiesValue) copiesBox.getSelectedItem();
+    }
+
     private void savePreferences() {
         prefs.putInt(PREF_ROWS, getGridRowNumber());
         prefs.putInt(PREF_COLS, getGridColNumber());
         prefs.putBoolean(PREF_EXCEL_CSV, useExcelFormat());
         prefs.put(PREF_DELIMITER, String.valueOf(getDelimiter()));
         prefs.put(PREF_FALSE_VALUE, getFalseValue().name());
+        prefs.put(PREF_COPIES_VALUE, getCopiesValue().name());
         prefs.put(PREF_CARD_FILTER, cardFilter.getText());
         prefs.put(PREF_WATCHED_FILE, watchedFilePath);
     }
@@ -318,6 +339,7 @@ public class MainForm extends JFrame implements UserConfiguration {
         }
         delimiterBox.setSelectedItem(prefs.get(PREF_DELIMITER, ";"));
         falseBox.setSelectedItem(FalseValue.valueOf(prefs.get(PREF_FALSE_VALUE, FalseValue.NONE.name())));
+        copiesBox.setSelectedItem(CopiesValue.valueOf(prefs.get(PREF_COPIES_VALUE, CopiesValue.NONE.name())));
         cardFilter.setText(prefs.get(PREF_CARD_FILTER, ""));
         watchedFilePath = prefs.get(PREF_WATCHED_FILE, null);
 
