@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class CardGenerator {
 
@@ -78,18 +79,7 @@ public class CardGenerator {
         Document doc = Jsoup.parse(html);
         String card = doc.select(".card").first().outerHtml();
         Template template = Mustache.compiler().escapeHTML(false).defaultValue("[NOT FOUND]").compile(card);
-        Iterable<CSVRecord> records = getData(projectFiles.getCsvFile(), config);
-
-        // filter cards
-        List<Integer> filter = config.getCardFilter();
-        List<CSVRecord> recordList = new ArrayList<>();
-        int index = 1;
-        for (CSVRecord record : records) {
-            if (filter.size() == 0 || filter.contains(index)) {
-                recordList.add(record);
-            }
-            index++;
-        }
+        List<CSVRecord> records = getData(projectFiles.getCsvFile(), config);
 
         StringBuilder sb = new StringBuilder();
         writeHeader(sb, projectFiles.getCssFile().getName());
@@ -98,7 +88,16 @@ public class CardGenerator {
         int cols = config.getGridColNumber();
         int page = rows * cols;
 
-        String[] cards = recordsToStrings(recordList, template, config.getFalseValue(), config.getCopiesValue());
+        final String[] allCards = recordsToStrings(records, template, config.getFalseValue(), config.getCopiesValue());
+
+        // filter cards
+        List<Integer> filter = config.getCardFilter();
+        final String[] cards = filter.isEmpty()
+                ? allCards
+                : filter.stream()
+                .map(i -> 1 <= i && i <= allCards.length ? allCards[i - 1] : null)
+                .filter(Objects::nonNull)
+                .toArray(String[]::new);
 
         for (int i = 0; i < cards.length; i++) {
             if (i % page == 0)
