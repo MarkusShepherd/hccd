@@ -6,6 +6,11 @@ HCCD is a small tool designed to automate the creation of game cards from a CSV 
 
 ![](http://vaemendis.github.io/external/hccd/hccd-diagram.png)
 
+To build a new JAR from source install `maven` and execute
+```bash
+mvn package
+```
+
 For other card game creation tools (there are a lot of them), check [this list](https://boardgamegeek.com/thread/991506/resources-card-game-makers) on BoardGameGeek.
 
 # 30 seconds example
